@@ -41,7 +41,10 @@ fn part1(filename: &str) -> i32 {
 fn part2(filename: &str) -> i32 {
     let file = File::open(filename).unwrap();
     let reader = BufReader::new(file);
-    let all_entries = reader.lines().map(|x| x.unwrap().chars().collect::<Vec<char>>()).collect::<Vec<Vec<char>>>();
+    let all_entries = reader
+        .lines()
+        .map(|x| x.unwrap().chars().collect::<Vec<char>>())
+        .collect::<Vec<Vec<char>>>();
     let oxygen = find_entry(&all_entries, ToMatch::MOST, 0);
     let co2 = find_entry(&all_entries, ToMatch::LEAST, 0);
     let oxygen_int = i32::from_str_radix(&oxygen, 2).expect("Not a binary number!");
@@ -74,7 +77,7 @@ fn find_entry(entries: &Vec<Vec<char>>, to_match: ToMatch, index: i32) -> String
             } else {
                 return find_entry(&g1, to_match, index + 1);
             }
-        },
+        }
         ToMatch::LEAST => {
             if g0.len() < g1.len() {
                 return find_entry(&g0, to_match, index + 1);
@@ -89,7 +92,7 @@ fn find_entry(entries: &Vec<Vec<char>>, to_match: ToMatch, index: i32) -> String
 
 enum ToMatch {
     MOST,
-    LEAST
+    LEAST,
 }
 
 fn main() {
