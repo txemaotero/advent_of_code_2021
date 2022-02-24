@@ -1,101 +1,99 @@
-use std::collections::{VecDeque, HashSet};
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::collections::{BinaryHeap, VecDeque};
 
-fn part1(filename: &str) -> i32 {
+
+fn parse_file(filename: &str) -> Vec<Vec<u8>>{
     let file = File::open(filename).unwrap();
     let reader = BufReader::new(file);
-    let mut three_lines: VecDeque<Vec<i32>> = VecDeque::new();
-    let mut result = 0;
-    for (index, line) in reader.lines().enumerate() {
-        let line = line
-            .unwrap()
-            .chars()
-            .map(|x| x.to_digit(10).unwrap() as i32)
-            .collect::<Vec<i32>>();
-        let len_lin = line.len();
-        if index == 0 {
-            let aux_vec = vec![10; len_lin];
-            three_lines.push_front(aux_vec);
-            three_lines.push_front(line);
-            continue;
-        } else if index == 1 {
-            three_lines.push_front(line);
-        } else {
-            three_lines.push_front(line);
-            three_lines.pop_back();
+
+    let mut nodes = Vec::new();
+    let mut size = None;
+    for line in reader.lines() {
+        let line = line.unwrap();
+        let mut aux_row = Vec::new();
+        aux_row.push(9);
+        match size {
+            None => {
+                let aux_size = line.len();
+                nodes.push(vec![9; aux_size + 2]);
+                size = Some(aux_size);
+            }
+            Some(_) => {}
         }
-        let minima = find_minima_three(&three_lines);
-        result += minima.iter().sum::<i32>() + minima.len() as i32;
+        for height in line.chars() {
+            let height = height.to_digit(10).unwrap() as u8;
+            aux_row.push(height);
+        }
+        aux_row.push(9);
+        nodes.push(aux_row);
     }
+    nodes.push(vec![9; size.unwrap() + 2]);
+    nodes
+}
 
-    let aux_vec = vec![10; three_lines[0].len()];
-    three_lines.push_front(aux_vec);
-    three_lines.pop_back();
-    let minima = find_minima_three(&three_lines);
-    result += minima.iter().sum::<i32>() + minima.len() as i32;
-
+fn part1(filename: &str) -> i32 {
+    let mut result = 0;
+    let nodes = parse_file(filename);
+    let len_lin = nodes[0].len();
+    for index in 1..len_lin - 1 {
+        let minima = find_minima_three(&nodes[index-1..index + 2].to_vec());
+        result += minima.iter().sum::<u8>() as i32 + minima.len() as i32;
+    }
     result
 }
 
-fn find_minima_three(three_lines: &VecDeque<Vec<i32>>) -> Vec<i32> {
-    let mut minima: Vec<i32> = Vec::new();
+fn find_minima_three(three_lines: &Vec<Vec<u8>>) -> Vec<u8> {
+    let mut minima: Vec<u8> = Vec::new();
     let len_line = three_lines[1].len();
-    for (index, number) in three_lines[1].iter().enumerate() {
-        let cond1 = number < &three_lines[0][index] && number < &three_lines[2][index];
-        if index == 0 {
-            if cond1 && number < &three_lines[1][index + 1] {
-                minima.push(*number);
-            }
-        } else if index == len_line - 1 {
-            if cond1 && number < &three_lines[1][index - 1] {
-                minima.push(*number);
-            }
-        } else {
-            let cond2 = number < &three_lines[1][index - 1] && number < &three_lines[1][index + 1];
-            if cond1 && cond2 {
-                minima.push(*number);
-            }
+    for index in 1..len_line - 1 {
+        let number = three_lines[1][index];
+        let cond1 = number < three_lines[0][index] && number < three_lines[2][index];
+        let cond2 = number < three_lines[1][index-1] && number < three_lines[1][index+1];
+        if cond1 && cond2 {
+            minima.push(number);
         }
     }
     minima
 }
 
 fn part2(filename: &str) -> i32 {
-    let file = File::open(filename).unwrap();
-    let reader = BufReader::new(file);
-    0
-}
-
-struct Node {
-    x: i32,
-    y: i32,
-    height: i32,
-    connections: HashSet<Node>,
-}
-
-impl Node {
-    fn new(x: i32, y: i32, height: i32) -> Node {
-        Node {
-            x,
-            y,
-            height,
-            connections: HashSet::new(),
+    let mut nodes = parse_file(filename);
+    let (n_rows, n_cols) = (nodes.len(), nodes[0].len());
+    let mut max_size: BinaryHeap<i32> = BinaryHeap::new();
+    for i in 0..n_rows {
+        for j in 0..n_cols {
+            let height = nodes[i][j];
+            if height == 9 {
+                continue;
+            }
+            let mut size = 0;
+            let mut remaining_nodes: VecDeque<(usize, usize)> = VecDeque::new();
+            remaining_nodes.push_front((i, j));
+            while let Some((it, jt)) = remaining_nodes.pop_front() {
+                for (i_nei, j_nei) in neighbors(it, jt) {
+                    if nodes[i_nei][j_nei] == 9 {
+                        continue;
+                    }
+                    nodes[i_nei][j_nei] = 9;
+                    remaining_nodes.push_back((i_nei, j_nei));
+                    size += 1;
+                }
+            }
+            max_size.push(size as i32);
         }
     }
-    
-    fn connect(&mut self, node: Node) {
-        self.connections.push(node);
+    let mut result = 1;
+    for _ in 0..3 {
+        result *= max_size.pop().unwrap();
     }
+    result
 }
 
-impl PartialEq for Node {
-    fn eq(&self, other: &Self) -> bool {
-        self.x == other.x && self.y == other.y
-    }
+fn neighbors(i: usize, j: usize) -> [(usize, usize); 4] {
+    [(i-1, j), (i+1, j), (i, j-1), (i, j+1)]
 }
-impl Eq for Node {}
 
 fn main() {
     let filename = env::args().nth(1).expect("Please supply a filename");
@@ -103,6 +101,6 @@ fn main() {
     let part1_result = part1(&filename);
     println!("Result of part 1: {}", part1_result);
 
-    // let part2_result = part2(&filename);
-    // println!("Result of part 2: {}", part2_result);
+    let part2_result = part2(&filename);
+    println!("Result of part 2: {}", part2_result);
 }
