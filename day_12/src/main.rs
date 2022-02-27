@@ -1,9 +1,10 @@
-use ndarray::{Array, Array2};
+use ndarray::{Array, Array2, Axis};
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Cave {
     Start,
     End,
@@ -30,7 +31,6 @@ fn parse_file(filename: &str) -> (Array2<u8>, HashMap<usize, Cave>) {
                 index += 1;
                 index - 1
             };
-        
             name_to_index.entry(s.clone()).or_insert(index);
             let cave = if s == "start" {
                 Cave::Start
@@ -57,19 +57,137 @@ fn parse_file(filename: &str) -> (Array2<u8>, HashMap<usize, Cave>) {
     (result, index_to_type)
 }
 
+fn non_zero_index(connection_mat: &Array2<u8>, start: usize) -> Vec<usize> {
+    connection_mat
+        .index_axis(Axis(0), start)
+        .iter()
+        .enumerate()
+        .filter(|(_, &v)| v == 1)
+        .map(|(i, _)| i)
+        .collect::<Vec<usize>>()
+}
+
+fn find_paths_part2(
+    mut connection_mat: Array2<u8>,
+    index_to_type: &HashMap<usize, Cave>,
+    start: usize,
+    result: &mut i32,
+    mut visit_counter: HashMap<usize, u32>,
+) {
+    if let Cave::End = index_to_type[&start] {
+        *result += 1;
+        return;
+    }
+    if connection_mat.index_axis(Axis(0), start).sum() == 0 {
+        return;
+    }
+    let new_starts = non_zero_index(&connection_mat, start);
+    match index_to_type[&start] {
+        Cave::Start => {
+            connection_mat.index_axis_mut(Axis(0), start).fill(0);
+            connection_mat.index_axis_mut(Axis(1), start).fill(0);
+        }
+        Cave::Small => {
+            *visit_counter.get_mut(&start).unwrap() += 1;
+            let count = visit_counter.iter().filter(|(_, &v)| v > 1).count();
+            if count == 1 {
+                connection_mat.index_axis_mut(Axis(0), start).fill(0);
+                connection_mat.index_axis_mut(Axis(1), start).fill(0);
+            } else if count > 1 {
+                return;
+            }
+        }
+        _ => {}
+    };
+    for new_start in new_starts {
+        find_paths_part2(
+            connection_mat.clone(),
+            index_to_type,
+            new_start,
+            result,
+            visit_counter.clone(),
+        );
+    }
+}
+
+fn find_paths(
+    mut connection_mat: Array2<u8>,
+    index_to_type: &HashMap<usize, Cave>,
+    start: usize,
+    result: &mut i32,
+) {
+    if let Cave::End = index_to_type[&start] {
+        *result += 1;
+        return;
+    }
+    if connection_mat.index_axis(Axis(0), start).sum() == 0 {
+        return;
+    }
+    let new_starts = non_zero_index(&connection_mat, start);
+    match index_to_type[&start] {
+        Cave::Start | Cave::Small => {
+            connection_mat.index_axis_mut(Axis(0), start).fill(0);
+            connection_mat.index_axis_mut(Axis(1), start).fill(0);
+        }
+        _ => {}
+    };
+    for new_start in new_starts {
+        find_paths(
+            connection_mat.clone(),
+            index_to_type,
+            new_start,
+            result,
+        );
+    }
+}
+
 fn part1(filename: &str) -> i32 {
     let (connection_mat, index_to_type) = parse_file(filename);
+    let mut result = 0;
+    let start_ind = index_to_type
+        .iter()
+        .find_map(|(ind, v)| match v {
+            Cave::Start => Some(*ind),
+            _ => None,
+        })
+        .unwrap();
+    find_paths(
+        connection_mat,
+        &index_to_type,
+        start_ind,
+        &mut result,
+    );
+    result
+}
 
-    0
+fn part2(filename: &str) -> i32 {
+    let (connection_mat, index_to_type) = parse_file(filename);
+    let mut result = 0;
+    let start_ind = index_to_type
+        .iter()
+        .find_map(|(ind, v)| match v {
+            Cave::Start => Some(*ind),
+            _ => None,
+        })
+        .unwrap();
+    let visit_counter: HashMap<usize, u32> =
+        index_to_type.iter().map(|(ind, _)| (*ind, 0)).collect();
+    find_paths_part2(
+        connection_mat,
+        &index_to_type,
+        start_ind,
+        &mut result,
+        visit_counter,
+    );
+    result
 }
 
 fn main() {
     let filename = env::args().nth(1).expect("Please supply a filename");
     // Open the file in read-only mode (ignoring errors).
-    
     let part1_result = part1(&filename);
     println!("Result of part 1: {}", part1_result);
 
-    // let part2_result = part2(&filename);
-    // println!("Result of part 2: {}", part2_result);
+    let part2_result = part2(&filename);
+    println!("Result of part 2: {}", part2_result);
 }
