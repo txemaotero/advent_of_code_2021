@@ -1,4 +1,5 @@
 use ndarray::{array, Array1, Array2, Axis};
+use std::cmp::max;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env;
@@ -23,11 +24,6 @@ impl Radar {
             }
         }
         None
-    }
-    fn transform_beacons(&self, translation: &Array1<i32>, transformation: &Array2<i32>) -> Radar {
-        Radar {
-            beacons: self.beacons.dot(transformation) + translation,
-        }
     }
 }
 
@@ -170,34 +166,72 @@ fn part1(radars: &Vec<Radar>) -> usize {
     let radars_relation = get_radars_relation(&radars);
     let connections = get_connections(&radars_relation);
 
-    let mut beacons: HashSet<_> = HashSet::new();
+    let mut beacons: HashSet<Array1<i32>> = HashSet::new();
     for row in radars[0].beacons.rows() {
-        beacons.insert(row.clone());
+        beacons.insert(row.to_owned());
     }
     for index in 1..radars.len() {
         let path = get_path_to_zero(&connections, index);
-        let mut aux_beacons = radars[index].beacons.clone();
-        for i in 0..path.len() - 1 {
-            let (vec, transf) = &radars_relation[&path[i]][&path[i + 1]];
-            aux_beacons = aux_beacons.dot(transf) + vec;
-        }
-        let rows = aux_beacons.rows();
-        for row in rows {
-            beacons.insert(row.clone());
+        let aux_beacons = {
+            let mut aux = radars[index].beacons.clone();
+            for i in 0..path.len() - 1 {
+                let (vec, transf) = &radars_relation[&path[i + 1]][&path[i]];
+                aux = aux.dot(&transf.clone()) + vec.clone();
+            }
+            aux
+        };
+        let mut aux_arr = Array1::zeros(3);
+        for (index, element) in aux_beacons.iter().enumerate() {
+            aux_arr[[index % 3]] = *element;
+            if index % 3 == 2 {
+                beacons.insert(aux_arr.clone());
+                aux_arr = Array1::zeros(3);
+            }
         }
     }
     beacons.len()
+}
+
+fn part2(radars: &Vec<Radar>) -> i32 {
+    let radars_relation = get_radars_relation(&radars);
+    let connections = get_connections(&radars_relation);
+
+    let mut beacons: Vec<Array1<i32>> = Vec::new();
+    beacons.push(array![0, 0, 0]);
+    for index in 1..radars.len() {
+        let path = get_path_to_zero(&connections, index);
+        let aux_beacons = {
+            let mut aux = array![0, 0, 0];
+            for i in 0..path.len() - 1 {
+                let (vec, transf) = &radars_relation[&path[i + 1]][&path[i]];
+                aux = aux.dot(&transf.clone()) + vec.clone();
+            }
+            aux
+        };
+        beacons.push(aux_beacons.clone());
+    }
+    max_distance(&beacons)
+}
+
+fn max_distance(beacons: &Vec<Array1<i32>>) -> i32 {
+    let mut dist = 0;
+    for i in 0..beacons.len() {
+        for j in i + 1..beacons.len() {
+            let orig = beacons[i].clone();
+            let tar = beacons[j].clone();
+            let new_dist = (tar - orig).iter().map(|x| x.abs()).sum::<i32>();
+            dist = max(dist, new_dist)
+        }
+    }
+    dist
 }
 
 fn main() {
     let filename = env::args().nth(1).expect("Please supply a filename");
     let radars = parse_file(&filename);
 
-    // let result = get_radars_relation(&radars);
-    // let con = get_connections(&result);
-    // dbg!(&con);
-    // let path = get_path_to_zero(&con, 3);
-    // dbg!(&path);
     let result = part1(&radars);
     println!("Part 1: {}", result);
+    let result = part2(&radars);
+    println!("Part 2: {}", result);
 }
