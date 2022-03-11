@@ -10,7 +10,6 @@ struct Cuboid {
     xlims: (i32, i32),
     ylims: (i32, i32),
     zlims: (i32, i32),
-    sign: i32
 }
 
 impl Cuboid {
@@ -19,7 +18,6 @@ impl Cuboid {
             xlims: (0, 0),
             ylims: (0, 0),
             zlims: (0, 0),
-            sign: 1
         }
     }
     fn len(&self) -> u64 {
@@ -30,90 +28,6 @@ impl Cuboid {
             panic!("Negative length");
         }
         res as u64
-    }
-    fn intersection(&self, other: &Self) -> Cuboid {
-        let lims = [
-            (
-                self.xlims.0.max(other.xlims.0),
-                self.xlims.1.min(other.xlims.1),
-            ),
-            (
-                self.ylims.0.max(other.ylims.0),
-                self.ylims.1.min(other.ylims.1),
-            ),
-            (
-                self.zlims.0.max(other.zlims.0),
-                self.zlims.1.min(other.zlims.1),
-            ),
-        ];
-        for lim in lims {
-            if lim.0 > lim.1 {
-                return Cuboid {
-                    xlims: (0, 0),
-                    ylims: (0, 0),
-                    zlims: (0, 0),
-                    sign: 1,
-                };
-            }
-        }
-        Cuboid {
-            xlims: lims[0],
-            ylims: lims[1],
-            zlims: lims[2],
-            sign: self.sign * other.sign,
-        }
-    }
-    fn negate(&mut self) {
-        self.sign *= -1;
-    }
-}
-
-#[derive(Debug)]
-struct CuboidOperation {
-    cuboids_list: Vec<Cuboid>,
-}
-
-impl CuboidOperation {
-    fn new() -> Self {
-        CuboidOperation {
-            cuboids_list: Vec::new(),
-        }
-    }
-    fn len(&self) -> usize {
-        self.cuboids_list.len()
-    }
-    fn negate(&mut self) {
-        for elem in self.cuboids_list.iter_mut() {
-            elem.negate();
-        }
-    }
-    fn intersection(&self, other: &Cuboid) -> Self {
-        let mut cuboids_list = Vec::new();
-        for i in 0..self.len() {
-            let c1 = &self.cuboids_list[i];
-            cuboids_list.push(c1.intersection(other));
-        }
-        CuboidOperation {
-            cuboids_list,
-        }
-    }
-    fn operate(&self) -> i64 {
-        let mut result = 0;
-        for elem in self.cuboids_list.iter() {
-            result += (elem.len() as i64) * elem.sign as i64;
-        }
-        result
-    }
-    fn add_on(&mut self, other: Cuboid) {
-        let mut inter = self.intersection(&other);
-        inter.negate();
-        self.cuboids_list.push(other);
-        self.cuboids_list.append(&mut inter.cuboids_list)
-    }
-    fn add_off(&mut self, other: Cuboid) {
-        let mut inter = self.intersection(&other);
-        inter.negate();
-        self.cuboids_list.append(&mut inter.cuboids_list)
     }
 }
 
@@ -142,7 +56,6 @@ impl Command {
             xlims: xlims,
             ylims: ylims,
             zlims: zlims,
-            sign: 1
         };
         Command { value, cuboid }
     }
@@ -194,29 +107,6 @@ fn part1(commands: &Vec<Command>) -> u32 {
     matrix.iter().filter(|&x| *x).count() as u32
 }
 
-fn get_ind_set(commands: &Vec<Command>, index: usize) -> Vec<Vec<i32>> {
-    let mut result = Vec::new();
-    if index  == 0 {
-        if commands[0].value {
-            result.push(vec![0]);
-        }
-        return result;
-    }
-    let prev = get_ind_set(commands, index - 1);
-    println!("{}", index);
-    result.append(&mut prev.clone());
-    if commands[index as usize].value {
-        result.push(vec![index as i32]);
-    }
-    let mut new_clone = prev;
-    for elem in new_clone.iter_mut() {
-        elem.push(-1);
-        elem.push(index as i32);
-    }
-    result.append(&mut new_clone);
-    result
-}
-
 fn make_all_combination_k(N: u32, left: u32, k: u32, result: &mut Vec<Vec<u32>>, tmp: &mut VecDeque<u32>) {
     if k == 0 {
         result.push(tmp.clone().into_iter().collect());
@@ -238,45 +128,9 @@ fn make_all_combination(N: u32) -> Vec<Vec<u32>> {
     result
 }
 
-fn get_all_intersections_len(commands: &Vec<Command>) -> HashMap<Vec<u32>, i64> {
-    let mut result = HashMap::new();
-    for combination in make_all_combination(commands.len() as u32) {
-        let mut cuboid = Cuboid::new();
-        let mut not_init = true;
-        for i in &combination {
-            if not_init {
-                cuboid = commands[*i as usize].cuboid.clone();
-                not_init = false;
-            } else {
-                cuboid = cuboid.intersection(&commands[*i as usize].cuboid);
-            }
-        }
-        result.insert(combination, cuboid.len() as i64);
-    }
-    result
-}
 
 fn part2(commands: &Vec<Command>) -> i64 {
-    println!("Creating all operations");
-    let list_operations = get_ind_set(commands, commands.len() - 1);
-    println!("Creating the maps");
-    let dict = get_all_intersections_len(commands);
-    println!("Adding the len");
-    let mut result = 0;
-    for operation in list_operations {
-        let mut new_op = Vec::new();
-        let mut sign = 1 as i64;
-        for ind in operation {
-            if ind == -1 {
-                sign *= -1;
-            } else {
-                new_op.push(ind as u32);
-            }
-        }
-        new_op.sort();
-        result += sign * dict.get(&new_op).unwrap();
-    }
-    result
+    0
 }
 
 
