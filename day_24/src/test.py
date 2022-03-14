@@ -13,10 +13,13 @@ with open('../input.txt') as f:
             aux = [line]
         else:
             aux.append(line)
-            
+
+commands.append(aux)
+    
 for index, all_cmd in enumerate(zip(*commands)):
     s = set(all_cmd)
-    print(s)
     if len(s) > 1:
-        pass
-        # print('Command: ', index, "->", ' # '.join(all_cmd))
+        print(all_cmd[0])
+        print('Command: ', index, "->", ' # '.join(s.split()[-1] for s in all_cmd))
+    else:
+        print(s)
